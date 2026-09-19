@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  vulnverify-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vulnverify-tools
+    ports:
+      - "8001:8000"
+    environment:
+      TOOL_TOKEN: ${TOOL_TOKEN:-unified-tools-token-12345}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      HOST: 0.0.0.0
+      PORT: 8000
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      ENABLE_REQUEST_LOGGING: ${ENABLE_REQUEST_LOGGING:-false}
+      DNSLOG_TYPE: ${DNSLOG_TYPE:-internal}
+      DNSLOG_DOMAIN: ${DNSLOG_DOMAIN:-}
+      DNSLOG_TOKEN: ${DNSLOG_TOKEN:-}
+      DNSLOG_WEBSERVER: ${DNSLOG_WEBSERVER:-}
+      CALLBACK_RED_BASE_URL: ${CALLBACK_RED_BASE_URL:-https://callback.red}
+      DNSLOG_CN_BASE_URL: ${DNSLOG_CN_BASE_URL:-http://www.dnslog.cn}
+      SCREENSHOT_MAX_CONCURRENCY: ${SCREENSHOT_MAX_CONCURRENCY:-2}
+      SCREENSHOT_EXECUTOR_WORKERS: ${SCREENSHOT_EXECUTOR_WORKERS:-2}
+      SCREENSHOT_PAGE_LOAD_TIMEOUT: ${SCREENSHOT_PAGE_LOAD_TIMEOUT:-20}
+      SCREENSHOT_ELEMENT_WAIT_TIMEOUT: ${SCREENSHOT_ELEMENT_WAIT_TIMEOUT:-10}
+      SCREENSHOT_REQUEST_TIMEOUT: ${SCREENSHOT_REQUEST_TIMEOUT:-15}
+      SCREENSHOT_MAX_SLEEP_TIME: ${SCREENSHOT_MAX_SLEEP_TIME:-3}
+      SCREENSHOT_UPLOAD_ENABLED: ${SCREENSHOT_UPLOAD_ENABLED:-true}
+      SCREENSHOT_RETURN_BASE64_BY_DEFAULT: ${SCREENSHOT_RETURN_BASE64_BY_DEFAULT:-false}
+      TERMINAL_HUB_RETURN_BASE64_BY_DEFAULT: ${TERMINAL_HUB_RETURN_BASE64_BY_DEFAULT:-false}
+      CHROMEDRIVER_PATH: ${CHROMEDRIVER_PATH:-/usr/bin/chromedriver}
+      CHROMIUM_BINARY: ${CHROMIUM_BINARY:-/usr/bin/chromium}
+      TERMINAL_HUB_ALLOWED_TOOLS: ${TERMINAL_HUB_ALLOWED_TOOLS:-}
+      # ── 截图存储：MinIO（私有化）──
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-pentest-self-reports}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_PUBLIC: ${MINIO_PUBLIC:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

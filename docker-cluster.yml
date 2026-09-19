@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  vulnverify-tools:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAMESPACE:-vulnverify}/${IMAGE_NAME:-vulnverify-tools}:${IMAGE_TAG:-latest}
+    environment:
+      TOOL_TOKEN: ${TOOL_TOKEN}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      HOST: 0.0.0.0
+      PORT: 8000
+      DNSLOG_TYPE: ${DNSLOG_TYPE:-internal}
+      DNSLOG_DOMAIN: ${DNSLOG_DOMAIN:-}
+      DNSLOG_TOKEN: ${DNSLOG_TOKEN:-}
+      DNSLOG_WEBSERVER: ${DNSLOG_WEBSERVER:-}
+      CALLBACK_RED_BASE_URL: ${CALLBACK_RED_BASE_URL:-https://callback.red}
+      DNSLOG_CN_BASE_URL: ${DNSLOG_CN_BASE_URL:-http://www.dnslog.cn}
+      CHROMEDRIVER_PATH: ${CHROMEDRIVER_PATH:-/usr/bin/chromedriver}
+      CHROMIUM_BINARY: ${CHROMIUM_BINARY:-/usr/bin/chromium}
+      TERMINAL_HUB_ALLOWED_TOOLS: ${TERMINAL_HUB_ALLOWED_TOOLS:-}
+    networks:
+      - vulnverify-overlay
+    ports:
+      - target: 8000
+        published: ${PUBLISHED_PORT:-8001}
+        protocol: tcp
+        mode: ingress
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      mode: ${DEPLOY_MODE:-replicated}
+      replicas: ${SERVICE_REPLICAS:-3}
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - "${PLACEMENT_CONSTRAINT:-node.platform.os == linux}"
+      resources:
+        reservations:
+          cpus: "${RESERVE_CPUS:-0.25}"
+          memory: ${RESERVE_MEMORY:-256M}
+        limits:
+          cpus: "${LIMIT_CPUS:-1.00}"
+          memory: ${LIMIT_MEMORY:-1G}
+
+networks:
+  vulnverify-overlay:
+    driver: overlay
+    attachable: true

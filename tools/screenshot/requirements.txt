@@ -1,0 +1,7 @@
+# Screenshot Tool Dependencies
+
+# Selenium for browser automation
+selenium==4.16.0
+
+# WebDriver Manager for automatic driver management
+webdriver-manager==4.0.1

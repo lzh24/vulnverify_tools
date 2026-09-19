@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terminal Hub</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    #terminal {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script>
+    const term = new Terminal({
+      cols: 140,
+      rows: 40,
+      cursorBlink: true,
+      fontSize: 14,
+      lineHeight: 1.2,
+      convertEol: true,
+      theme: {
+        background: '#000000',
+        foreground: '#d1ffd1',
+        cursor: '#d1ffd1',
+      },
+    });
+
+    term.open(document.getElementById('terminal'));
+
+    function qs(name, fallback = '') {
+      const val = new URLSearchParams(location.search).get(name);
+      return val == null ? fallback : val;
+    }
+
+    function write(text) {
+      term.writeln(String(text || '').replace(/\n/g, '\r\n'));
+    }
+
+    function parseArgs(raw) {
+      if (!raw || !raw.trim()) return [];
+      const val = JSON.parse(raw);
+      if (!Array.isArray(val)) throw new Error('args must be JSON array');
+      return val.map(v => String(v));
+    }
+
+    async function call(action, params, token) {
+      const resp = await fetch(`/execute/terminal_hub/${action}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ params }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.detail || `HTTP ${resp.status}`);
+      if (!data.success) throw new Error(data?.error?.message || 'action failed');
+      return data.data;
+    }
+
+    async function run() {
+      const token = qs('token');
+      const cmd = qs('cmd');
+      const argsRaw = qs('args', '[]');
+      const sessionId = qs('session_id');
+
+      if (!token) {
+        write('[error] missing url param: token');
+        return;
+      }
+
+      let sid = sessionId;
+      if (!sid) {
+        if (!cmd) {
+          write('[error] missing url param: cmd');
+          return;
+        }
+        const args = parseArgs(argsRaw);
+        write(`$ ${cmd} ${args.join(' ')}`);
+        write('');
+
+        const created = await call('create_session', {
+          token,
+          cmd,
+          args,
+          auto_screenshot: true,
+        }, token);
+        sid = created.session_id;
+
+        const url = new URL(location.href);
+        url.searchParams.set('session_id', sid);
+        history.replaceState(null, '', url.toString());
+      }
+
+      for (let i = 0; i < 180; i++) {
+        const ret = await call('get_session', { session_id: sid }, token);
+        term.clear();
+        write(`$ ${ret.command.join(' ')}`);
+        write('');
+        if (ret.stdout) write(ret.stdout);
+        if (ret.stderr) {
+          write('--- stderr ---');
+          write(ret.stderr);
+        }
+        write('');
+        write(`[status] ${ret.status}, return_code=${ret.return_code}`);
+
+        if (ret.status === 'finished' || ret.status === 'failed') {
+          return;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      write('[error] poll timeout');
+    }
+
+    run().catch(err => {
+      write(`[error] ${err.message}`);
+    });
+  </script>
+</body>
+</html>
